@@ -15,6 +15,10 @@ const Dashboard = () => {
   const [stats, setStats] = useState([]);
   const [sourceStats, setSourceStats] = useState([]);
   const [activeTab, setActiveTab] = useState('leads');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [newLead, setNewLead] = useState({ name: '', email: '', phone: '', source: 'Manual Entry', notes: '' });
 
   useEffect(() => {
     fetchLeads();
@@ -34,6 +38,11 @@ const Dashboard = () => {
   const calculateStats = (data) => {
     const sourceCounts = data.reduce((acc, lead) => {
       acc[lead.source] = (acc[lead.source] || 0) + 1;
+      return acc;
+    }, {});
+
+    const counts = data.reduce((acc, lead) => {
+      acc[lead.status] = (acc[lead.status] || 0) + 1;
       return acc;
     }, {});
 
@@ -72,6 +81,23 @@ const Dashboard = () => {
         alert('Error deleting lead');
       }
     }
+  };
+
+  const handleAddLead = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/leads', newLead);
+      setShowAddModal(false);
+      setNewLead({ name: '', email: '', phone: '', source: 'Manual Entry', notes: '' });
+      fetchLeads();
+    } catch (err) {
+      alert('Error adding lead');
+    }
+  };
+
+  const handleViewDetails = (lead) => {
+    setSelectedLead(lead);
+    setShowViewModal(true);
   };
 
   const handleLogout = () => {
@@ -115,9 +141,16 @@ const Dashboard = () => {
       <main className="main-content">
         <header className="main-header">
           <h1>Lead Overview</h1>
-          <div className="admin-info">
-            <span>Admin</span>
-            <div className="avatar">A</div>
+          <div className="header-actions">
+            {activeTab === 'leads' && (
+              <button className="add-lead-btn" onClick={() => setShowAddModal(true)}>
+                + New Lead
+              </button>
+            )}
+            <div className="admin-info">
+              <span>Admin</span>
+              <div className="avatar">A</div>
+            </div>
           </div>
         </header>
 
@@ -229,7 +262,7 @@ const Dashboard = () => {
                           </td>
                           <td>{new Date(lead.created_at).toLocaleDateString()}</td>
                           <td className="actions">
-                            <button className="action-btn tip" title="View details"><MessageSquare size={16} /></button>
+                            <button onClick={() => handleViewDetails(lead)} className="action-btn tip" title="View details"><MessageSquare size={16} /></button>
                             <button onClick={() => handleDelete(lead.id)} className="action-btn delete"><Trash2 size={16} /></button>
                           </td>
                         </motion.tr>
@@ -290,6 +323,86 @@ const Dashboard = () => {
         )}
       </main>
 
+      {/* Add Lead Modal */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <motion.div 
+            className="modal-content glass-card"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>Add New Person</h2>
+            <form onSubmit={handleAddLead}>
+              <div className="input-group">
+                <input 
+                  type="text" placeholder="Name" required 
+                  value={newLead.name} onChange={(e) => setNewLead({...newLead, name: e.target.value})}
+                />
+              </div>
+              <div className="input-group">
+                <input 
+                  type="email" placeholder="Email" required 
+                  value={newLead.email} onChange={(e) => setNewLead({...newLead, email: e.target.value})}
+                />
+              </div>
+              <div className="input-group">
+                <input 
+                  type="text" placeholder="Phone" 
+                  value={newLead.phone} onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
+                />
+              </div>
+              <div className="input-group">
+                <input 
+                  type="text" placeholder="Source (e.g. Website, Referral)" 
+                  value={newLead.source} onChange={(e) => setNewLead({...newLead, source: e.target.value})}
+                />
+              </div>
+              <div className="input-group">
+                <textarea 
+                  placeholder="Notes" 
+                  value={newLead.notes} onChange={(e) => setNewLead({...newLead, notes: e.target.value})}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowAddModal(false)} className="cancel-btn">Cancel</button>
+                <button type="submit" className="submit-btn">Add Lead</button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
+      {showViewModal && selectedLead && (
+        <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
+          <motion.div 
+            className="modal-content glass-card"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="lead-detail-header">
+              <h2>Lead Details</h2>
+              <span className={`status-badge status-${selectedLead.status}`}>{selectedLead.status}</span>
+            </div>
+            <div className="lead-info-grid">
+              <div className="info-item"><strong>Name:</strong> {selectedLead.name}</div>
+              <div className="info-item"><strong>Email:</strong> {selectedLead.email}</div>
+              <div className="info-item"><strong>Phone:</strong> {selectedLead.phone || 'N/A'}</div>
+              <div className="info-item"><strong>Source:</strong> {selectedLead.source}</div>
+              <div className="info-item"><strong>Joined:</strong> {new Date(selectedLead.created_at).toLocaleString()}</div>
+            </div>
+            <div className="info-item full">
+              <strong>Notes:</strong>
+              <p className="notes-display">{selectedLead.notes || 'No notes available.'}</p>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowViewModal(false)} className="submit-btn">Close</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
